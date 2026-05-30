@@ -161,6 +161,24 @@ export class FlashLoanError extends CoralSwapSDKError {
 }
 
 /**
+ * RWA (Real World Asset) related errors.
+ */
+export class RWAError extends CoralSwapSDKError {
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
+    super(code, message, details);
+    this.name = "RWAError";
+  }
+
+  static UnsupportedAsset(asset: string): RWAError {
+    return new RWAError(
+      "RWA_UNSUPPORTED_ASSET",
+      `Unsupported RWA asset: ${asset}`,
+      { asset },
+    );
+  }
+}
+
+/**
  * Circuit breaker triggered (pool is paused).
  */
 export class CircuitBreakerError extends CoralSwapSDKError {

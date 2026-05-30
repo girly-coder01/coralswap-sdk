@@ -65,9 +65,11 @@ export {
   OracleModule,
   TokenListModule,
   RouterModule,
+  RWAModule,
 } from "@/modules";
 export type { OptimalPath } from "@/modules/router";
 export type { TWAPObservation, TWAPResult } from "@/modules";
+export type { RWAPrice, RWASwapQuote, RWAPoolAPY } from "@/modules";
 
 // Utilities
 export {
@@ -139,5 +141,6 @@ export {
   FlashLoanError,
   CircuitBreakerError,
   SignerError,
+  RWAError,
   mapError,
 } from "@/errors";

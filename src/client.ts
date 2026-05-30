@@ -13,6 +13,7 @@ import { RouterClient } from '@/contracts/router';
 import { LPTokenClient } from '@/contracts/lp-token';
 import { TokenListModule } from '@/modules/tokens';
 import { FactoryModule } from '@/modules/factory';
+import { RWAModule } from '@/modules/rwa';
 import { KeypairSigner } from '@/utils/signer';
 import { TransactionPoller, PollingStrategy, PollingOptions } from '@/utils/polling';
 import { buildSimulationResult } from '@/utils/simulation';
@@ -44,6 +45,7 @@ export class CoralSwapClient {
   private _factory: FactoryClient | null = null;
   private _router: RouterClient | null = null;
   private _factoryModule: FactoryModule | null = null;
+  private _rwa: RWAModule | null = null;
   private _poller: TransactionPoller | null = null;
   private readonly logger?: Logger;
 
@@ -308,6 +310,11 @@ export class CoralSwapClient {
       this._factoryModule.clearCache();
     }
 
+    // Reset RWA module cache
+    if (this._rwa) {
+      this._rwa.clearCache();
+    }
+
     // Refresh signer if using built-in KeypairSigner
     if (this.config.secretKey) {
       const kpSigner = new KeypairSigner(
@@ -352,6 +359,16 @@ export class CoralSwapClient {
       this._factoryModule = new FactoryModule(this);
     }
     return this._factoryModule;
+  }
+
+  /**
+   * Access the RWA module for NAV-quoted pricing on Centrifuge assets.
+   */
+  rwa(): RWAModule {
+    if (!this._rwa) {
+      this._rwa = new RWAModule(this);
+    }
+    return this._rwa;
   }
 
   /**
