@@ -12,3 +12,4 @@ export {
   RWASwapQuote,
   RWAPoolAPY,
 } from './rwa';
+export { AnalyticsModule, PoolHealth } from './analytics';

@@ -66,10 +66,12 @@ export {
   TokenListModule,
   RouterModule,
   RWAModule,
+  AnalyticsModule,
 } from "@/modules";
 export type { OptimalPath } from "@/modules/router";
 export type { TWAPObservation, TWAPResult } from "@/modules";
 export type { RWAPrice, RWASwapQuote, RWAPoolAPY } from "@/modules";
+export type { PoolHealth } from "@/modules";
 
 // Utilities
 export {

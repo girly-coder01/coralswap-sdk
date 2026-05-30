@@ -14,6 +14,7 @@ import { LPTokenClient } from '@/contracts/lp-token';
 import { TokenListModule } from '@/modules/tokens';
 import { FactoryModule } from '@/modules/factory';
 import { RWAModule } from '@/modules/rwa';
+import { AnalyticsModule } from '@/modules/analytics';
 import { KeypairSigner } from '@/utils/signer';
 import { TransactionPoller, PollingStrategy, PollingOptions } from '@/utils/polling';
 import { buildSimulationResult } from '@/utils/simulation';
@@ -46,6 +47,7 @@ export class CoralSwapClient {
   private _router: RouterClient | null = null;
   private _factoryModule: FactoryModule | null = null;
   private _rwa: RWAModule | null = null;
+  private _analytics: AnalyticsModule | null = null;
   private _poller: TransactionPoller | null = null;
   private readonly logger?: Logger;
 
@@ -314,6 +316,9 @@ export class CoralSwapClient {
     if (this._rwa) {
       this._rwa.clearCache();
     }
+    if (this._analytics) {
+      this._analytics.clearCache();
+    }
 
     // Refresh signer if using built-in KeypairSigner
     if (this.config.secretKey) {
@@ -369,6 +374,13 @@ export class CoralSwapClient {
       this._rwa = new RWAModule(this);
     }
     return this._rwa;
+  }
+
+  analytics(): AnalyticsModule {
+    if (!this._analytics) {
+      this._analytics = new AnalyticsModule(this);
+    }
+    return this._analytics;
   }
 
   /**
