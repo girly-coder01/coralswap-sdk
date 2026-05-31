@@ -111,6 +111,15 @@ export class CoralSwapClient {
   }
 
   /**
+   * Replace the internal RPC server instance.
+   *
+   * Primarily used in tests to inject a mock server without a live network.
+   */
+  set server(s: SorobanRpc.Server) {
+    this._server = s;
+  }
+
+  /**
    * Rotate to the next available RPC server in the fallback list.
    * @private
    */
@@ -165,6 +174,9 @@ export class CoralSwapClient {
     } else {
       this._rpcUrls = [this.networkConfig.rpcUrl];
     }
+
+    // Keep networkConfig.rpcUrl in sync with the active RPC URL
+    this.networkConfig.rpcUrl = this._rpcUrls[0];
 
     this._currentRpcIndex = 0;
     this._server = this.createRpcServer(this._rpcUrls[0]);
@@ -300,6 +312,9 @@ export class CoralSwapClient {
     } else {
       this._rpcUrls = [this.networkConfig.rpcUrl];
     }
+
+    // Keep networkConfig.rpcUrl in sync with the active RPC URL
+    this.networkConfig.rpcUrl = this._rpcUrls[0];
 
     this._currentRpcIndex = 0;
     this._server = this.createRpcServer(this._rpcUrls[0]);

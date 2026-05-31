@@ -209,12 +209,16 @@ export class SwapModule {
       );
     }
 
+    if (request.tradeType === TradeType.EXACT_OUT) {
+      throw new ValidationError(
+        'EXACT_OUT trade type is not supported for multi-hop swaps',
+        { path },
+      );
+    }
+
     path.forEach((addr, i) => validateAddress(addr, `path[${i}]`));
 
-    const hops =
-      request.tradeType === TradeType.EXACT_OUT
-        ? await this.computeHopsReverse(request.amount, path)
-        : await this.computeHops(request.amount, path);
+    const hops = await this.computeHops(request.amount, path);
 
     const totalFeeAmount = hops.reduce((acc, h) => acc + h.feeAmount, 0n);
     const totalFeeBps = this.computeCompoundedFeeBps(hops.map((h) => h.feeBps));
@@ -687,10 +691,13 @@ export class SwapModule {
     request: SwapRequest,
     path: string[],
   ): Promise<SwapQuote> {
-    const hops =
-      request.tradeType === TradeType.EXACT_OUT
-        ? await this.computeHopsReverse(request.amount, path)
-        : await this.computeHops(request.amount, path);
+    if (request.tradeType === TradeType.EXACT_OUT) {
+      throw new ValidationError(
+        'EXACT_OUT trade type is not supported for multi-hop swaps',
+        { path },
+      );
+    }
+    const hops = await this.computeHops(request.amount, path);
 
     // Aggregate totals
     const totalFeeAmount = hops.reduce((acc, h) => acc + h.feeAmount, 0n);
