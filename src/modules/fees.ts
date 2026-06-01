@@ -1,5 +1,5 @@
 import { CoralSwapClient } from "@/client";
-import { FeeEstimate } from "@/types/fee";
+import { FeeEstimate, FeeHistory, FeeHistoryEntry, FeeTrend, FeeTrendDirection } from "@/types/fee";
 import { FeeState } from "@/types/pool";
 import { validateAddress, validatePositiveAmount } from "@/utils/validation";
 
@@ -148,5 +148,123 @@ export class FeeModule {
    */
   async compareFees(pairAddresses: string[]): Promise<FeeEstimate[]> {
     return Promise.all(pairAddresses.map((addr) => this.getCurrentFee(addr)));
+  }
+
+  /**
+   * Fetch fee-update event history for a pair from on-chain events.
+   *
+   * @param pairAddress - The address of the pair contract
+   * @param startLedger - Ledger to start scanning from (defaults to 0)
+   * @returns Aggregated fee history including min, max, and average fee
+   * @example
+   * const history = await fees.getFeeHistory('C...', 1000000);
+   */
+  async getFeeHistory(
+    pairAddress: string,
+    startLedger = 0,
+  ): Promise<FeeHistory> {
+    validateAddress(pairAddress, "pairAddress");
+
+    const response = await this.client.server.getEvents({
+      startLedger,
+      filters: [
+        {
+          type: "contract",
+          contractIds: [pairAddress],
+          topics: [["fee_update"]],
+        },
+      ],
+    });
+
+    const entries: FeeHistoryEntry[] = (response.events ?? []).map((evt) => {
+      // data is a map: { previous_fee_bps, new_fee_bps, volatility }
+      const data = evt.value;
+      let feeBps = 0;
+      let volatility = 0n;
+
+      if (data && data.switch().name !== "scvVoid") {
+        try {
+          const map = data.map() ?? [];
+          for (const entry of map) {
+            const key = entry.key().sym?.().toString() ?? entry.key().str?.().toString() ?? "";
+            if (key === "new_fee_bps") feeBps = entry.val().u32();
+            if (key === "volatility") {
+              const parts = entry.val().i128();
+              volatility = BigInt(parts.lo().toString()) + (BigInt(parts.hi().toString()) << 64n);
+            }
+          }
+        } catch {
+          // best-effort decode
+        }
+      }
+
+      return {
+        ledger: evt.ledger,
+        timestamp: evt.ledgerClosedAt
+          ? Math.floor(new Date(evt.ledgerClosedAt).getTime() / 1000)
+          : 0,
+        feeBps,
+        volatility,
+      };
+    });
+
+    // Sort oldest-first
+    entries.sort((a, b) => a.ledger - b.ledger);
+
+    const fees = entries.map((e) => e.feeBps);
+    const minFeeBps = fees.length ? Math.min(...fees) : 0;
+    const maxFeeBps = fees.length ? Math.max(...fees) : 0;
+    const avgFeeBps = fees.length
+      ? Math.round(fees.reduce((s, f) => s + f, 0) / fees.length)
+      : 0;
+
+    return { pairAddress, entries, minFeeBps, maxFeeBps, avgFeeBps };
+  }
+
+  /**
+   * Analyse the fee trend for a pair based on its event history.
+   *
+   * @param pairAddress - The address of the pair contract
+   * @param startLedger - Ledger to start scanning from (defaults to 0)
+   * @returns Trend direction, start/end fees, and change in basis points
+   * @example
+   * const trend = await fees.analyzeTrend('C...');
+   */
+  async analyzeTrend(
+    pairAddress: string,
+    startLedger = 0,
+  ): Promise<FeeTrend> {
+    const history = await this.getFeeHistory(pairAddress, startLedger);
+
+    if (history.entries.length === 0) {
+      // Fall back to current fee when no history is available
+      const current = await this.getCurrentFee(pairAddress);
+      return {
+        pairAddress,
+        direction: "stable",
+        startFeeBps: current.currentFeeBps,
+        endFeeBps: current.currentFeeBps,
+        changeBps: 0,
+        dataPoints: 0,
+      };
+    }
+
+    const startFeeBps = history.entries[0].feeBps;
+    const endFeeBps = history.entries[history.entries.length - 1].feeBps;
+    const changeBps = endFeeBps - startFeeBps;
+
+    let direction: FeeTrendDirection;
+    if (changeBps > 0) direction = "increasing";
+    else if (changeBps < 0) direction = "decreasing";
+    else direction = "stable";
+
+    return {
+      pairAddress,
+      direction,
+      startFeeBps,
+      endFeeBps,
+      changeBps,
+      dataPoints: history.entries.length,
+    };
   }
 }

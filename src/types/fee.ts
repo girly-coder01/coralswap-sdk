@@ -57,3 +57,40 @@ export interface FeeHistoryEntry {
   /** Volatility accumulator at the time */
   volatility: bigint;
 }
+
+/**
+ * Aggregated fee history for a pair over a time window.
+ */
+export interface FeeHistory {
+  /** Address of the pair */
+  pairAddress: string;
+  /** Ordered list of fee change events (oldest first) */
+  entries: FeeHistoryEntry[];
+  /** Lowest fee observed in the window */
+  minFeeBps: number;
+  /** Highest fee observed in the window */
+  maxFeeBps: number;
+  /** Simple average fee across all entries */
+  avgFeeBps: number;
+}
+
+/** Direction of fee movement over the analysed window. */
+export type FeeTrendDirection = "increasing" | "decreasing" | "stable";
+
+/**
+ * Trend analysis result derived from fee history.
+ */
+export interface FeeTrend {
+  /** Address of the pair */
+  pairAddress: string;
+  /** Overall direction of fee movement */
+  direction: FeeTrendDirection;
+  /** Fee at the start of the window */
+  startFeeBps: number;
+  /** Fee at the end of the window */
+  endFeeBps: number;
+  /** Absolute change in basis points (endFee - startFee) */
+  changeBps: number;
+  /** Number of fee-update events in the window */
+  dataPoints: number;
+}

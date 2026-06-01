@@ -1,6 +1,7 @@
 import { FeeModule } from '../src/modules/fees';
 import { CoralSwapClient } from '../src/client';
 import { FeeState } from '../src/types/pool';
+import { xdr } from '@stellar/stellar-sdk';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -324,5 +325,201 @@ describe('FeeModule', () => {
             expect(results[0].isStale).toBe(false);
             expect(results[1].isStale).toBe(true);
         });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers for getFeeHistory / analyzeTrend
+// ---------------------------------------------------------------------------
+
+/** Build a minimal mock event as returned by server.getEvents(). */
+function makeFeeEvent(ledger: number, newFeeBps: number, volatility = 0n): object {
+    // Build a minimal ScVal map with new_fee_bps and volatility
+    const map = xdr.ScVal.scvMap([
+        new xdr.ScMapEntry({
+            key: xdr.ScVal.scvSymbol('new_fee_bps'),
+            val: xdr.ScVal.scvU32(newFeeBps),
+        }),
+        new xdr.ScMapEntry({
+            key: xdr.ScVal.scvSymbol('volatility'),
+            val: xdr.ScVal.scvI128(
+                new xdr.Int128Parts({
+                    lo: xdr.Uint64.fromString((volatility & 0xFFFFFFFFFFFFFFFFn).toString()),
+                    hi: xdr.Int64.fromString((volatility >> 64n).toString()),
+                }),
+            ),
+        }),
+    ]);
+
+    return {
+        ledger,
+        ledgerClosedAt: new Date(ledger * 1000).toISOString(),
+        value: map,
+    };
+}
+
+/** Create a mock client that also mocks server.getEvents(). */
+function createMockClientWithEvents(
+    events: object[],
+    opts: Parameters<typeof createMockClient>[0] = {},
+): CoralSwapClient {
+    const base = createMockClient(opts);
+    (base as any).server = {
+        getEvents: jest.fn().mockResolvedValue({ events }),
+    };
+    return base;
+}
+
+// ---------------------------------------------------------------------------
+// getFeeHistory() tests
+// ---------------------------------------------------------------------------
+
+describe('FeeModule – getFeeHistory()', () => {
+    const PAIR = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM';
+
+    it('returns empty history when no events exist', async () => {
+        const client = createMockClientWithEvents([]);
+        const module = new FeeModule(client);
+
+        const history = await module.getFeeHistory(PAIR);
+
+        expect(history.pairAddress).toBe(PAIR);
+        expect(history.entries).toHaveLength(0);
+        expect(history.minFeeBps).toBe(0);
+        expect(history.maxFeeBps).toBe(0);
+        expect(history.avgFeeBps).toBe(0);
+    });
+
+    it('parses a single fee-update event correctly', async () => {
+        const client = createMockClientWithEvents([makeFeeEvent(1000, 30, 500n)]);
+        const module = new FeeModule(client);
+
+        const history = await module.getFeeHistory(PAIR);
+
+        expect(history.entries).toHaveLength(1);
+        expect(history.entries[0].ledger).toBe(1000);
+        expect(history.entries[0].feeBps).toBe(30);
+        expect(history.entries[0].volatility).toBe(500n);
+        expect(history.minFeeBps).toBe(30);
+        expect(history.maxFeeBps).toBe(30);
+        expect(history.avgFeeBps).toBe(30);
+    });
+
+    it('computes correct min, max, avg across multiple events', async () => {
+        const events = [
+            makeFeeEvent(1000, 20),
+            makeFeeEvent(1001, 50),
+            makeFeeEvent(1002, 80),
+        ];
+        const client = createMockClientWithEvents(events);
+        const module = new FeeModule(client);
+
+        const history = await module.getFeeHistory(PAIR);
+
+        expect(history.minFeeBps).toBe(20);
+        expect(history.maxFeeBps).toBe(80);
+        expect(history.avgFeeBps).toBe(50); // (20+50+80)/3 = 50
+    });
+
+    it('sorts entries oldest-first regardless of event order', async () => {
+        const events = [
+            makeFeeEvent(1002, 80),
+            makeFeeEvent(1000, 20),
+            makeFeeEvent(1001, 50),
+        ];
+        const client = createMockClientWithEvents(events);
+        const module = new FeeModule(client);
+
+        const history = await module.getFeeHistory(PAIR);
+
+        expect(history.entries[0].ledger).toBe(1000);
+        expect(history.entries[1].ledger).toBe(1001);
+        expect(history.entries[2].ledger).toBe(1002);
+    });
+
+    it('passes startLedger to server.getEvents()', async () => {
+        const client = createMockClientWithEvents([]);
+        const module = new FeeModule(client);
+
+        await module.getFeeHistory(PAIR, 5000);
+
+        expect((client as any).server.getEvents).toHaveBeenCalledWith(
+            expect.objectContaining({ startLedger: 5000 }),
+        );
+    });
+
+    it('rejects invalid pair address', async () => {
+        const client = createMockClientWithEvents([]);
+        const module = new FeeModule(client);
+
+        await expect(module.getFeeHistory('not-an-address')).rejects.toThrow();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// analyzeTrend() tests
+// ---------------------------------------------------------------------------
+
+describe('FeeModule – analyzeTrend()', () => {
+    const PAIR = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM';
+
+    it('returns stable trend with current fee when no history exists', async () => {
+        const feeState = makeFeeState({ feeCurrent: 30 });
+        const client = createMockClientWithEvents([], { feeState });
+        const module = new FeeModule(client);
+
+        const trend = await module.analyzeTrend(PAIR);
+
+        expect(trend.direction).toBe('stable');
+        expect(trend.startFeeBps).toBe(30);
+        expect(trend.endFeeBps).toBe(30);
+        expect(trend.changeBps).toBe(0);
+        expect(trend.dataPoints).toBe(0);
+    });
+
+    it('detects increasing trend', async () => {
+        const events = [makeFeeEvent(1000, 20), makeFeeEvent(1001, 50)];
+        const client = createMockClientWithEvents(events);
+        const module = new FeeModule(client);
+
+        const trend = await module.analyzeTrend(PAIR);
+
+        expect(trend.direction).toBe('increasing');
+        expect(trend.startFeeBps).toBe(20);
+        expect(trend.endFeeBps).toBe(50);
+        expect(trend.changeBps).toBe(30);
+        expect(trend.dataPoints).toBe(2);
+    });
+
+    it('detects decreasing trend', async () => {
+        const events = [makeFeeEvent(1000, 80), makeFeeEvent(1001, 30)];
+        const client = createMockClientWithEvents(events);
+        const module = new FeeModule(client);
+
+        const trend = await module.analyzeTrend(PAIR);
+
+        expect(trend.direction).toBe('decreasing');
+        expect(trend.changeBps).toBe(-50);
+    });
+
+    it('detects stable trend when start equals end', async () => {
+        const events = [makeFeeEvent(1000, 30), makeFeeEvent(1001, 50), makeFeeEvent(1002, 30)];
+        const client = createMockClientWithEvents(events);
+        const module = new FeeModule(client);
+
+        const trend = await module.analyzeTrend(PAIR);
+
+        expect(trend.direction).toBe('stable');
+        expect(trend.changeBps).toBe(0);
+        expect(trend.dataPoints).toBe(3);
+    });
+
+    it('includes pairAddress in result', async () => {
+        const client = createMockClientWithEvents([makeFeeEvent(1000, 30)]);
+        const module = new FeeModule(client);
+
+        const trend = await module.analyzeTrend(PAIR);
+
+        expect(trend.pairAddress).toBe(PAIR);
     });
 });
