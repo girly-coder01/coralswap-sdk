@@ -6,6 +6,7 @@ import {
   Address,
   nativeToScVal,
 } from "@stellar/stellar-sdk";
+import { DEFAULTS } from "@/config";
 import { withRetry, RetryOptions } from "@/utils/retry";
 import { Logger } from "@/types/common";
 
@@ -21,6 +22,7 @@ export class LPTokenClient {
   private networkPassphrase: string;
   private retryOptions: RetryOptions;
   private logger?: Logger;
+  private transactionTimeoutSeconds: number;
   readonly address: string;
 
   /**
@@ -31,6 +33,7 @@ export class LPTokenClient {
    * @param networkPassphrase - The Stellar network passphrase.
    * @param retryOptions - Retry policy for RPC calls.
    * @param logger - Optional logger for debug/error output.
+   * @param transactionTimeoutSeconds - Optional transaction timeout seconds.
    */
   constructor(
     contractAddress: string,
@@ -38,6 +41,7 @@ export class LPTokenClient {
     networkPassphrase: string,
     retryOptions: RetryOptions,
     logger?: Logger,
+    transactionTimeoutSeconds?: number,
   ) {
     this.address = contractAddress;
     this.contract = new Contract(contractAddress);
@@ -45,6 +49,7 @@ export class LPTokenClient {
     this.networkPassphrase = networkPassphrase;
     this.retryOptions = retryOptions;
     this.logger = logger;
+    this.transactionTimeoutSeconds = transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds;
   }
 
   /**
@@ -195,7 +200,7 @@ export class LPTokenClient {
       networkPassphrase: this.networkPassphrase,
     })
       .addOperation(op)
-      .setTimeout(30)
+      .setTimeout(this.transactionTimeoutSeconds)
       .build();
 
     const sim = await withRetry(

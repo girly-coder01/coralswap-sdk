@@ -6,6 +6,7 @@ import {
   Address,
   nativeToScVal,
 } from "@stellar/stellar-sdk";
+import { DEFAULTS } from "@/config";
 import { withRetry, RetryOptions } from "@/utils/retry";
 import { Logger } from "@/types/common";
 
@@ -21,6 +22,7 @@ export class FactoryClient {
   private networkPassphrase: string;
   private retryOptions: RetryOptions;
   private logger?: Logger;
+  private transactionTimeoutSeconds: number;
 
   /**
    * Create a new FactoryClient.
@@ -37,12 +39,14 @@ export class FactoryClient {
     networkPassphrase: string,
     retryOptions: RetryOptions,
     logger?: Logger,
+    transactionTimeoutSeconds?: number,
   ) {
     this.contract = new Contract(contractAddress);
     this.server = server;
     this.networkPassphrase = networkPassphrase;
     this.retryOptions = retryOptions;
     this.logger = logger;
+    this.transactionTimeoutSeconds = transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds;
   }
 
   /**
@@ -189,7 +193,7 @@ export class FactoryClient {
       networkPassphrase: this.networkPassphrase,
     })
       .addOperation(op)
-      .setTimeout(30)
+      .setTimeout(this.transactionTimeoutSeconds)
       .build();
 
     const sim = await withRetry(

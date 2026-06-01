@@ -42,6 +42,8 @@ export interface CoralSwapConfig {
   retryDelayMs?: number;
   /** Maximum delay in milliseconds between retry attempts */
   maxRetryDelayMs?: number;
+  /** Transaction timeout in seconds (default 30) */
+  transactionTimeoutSeconds?: number;
   pollingStrategy?: PollingStrategy;
   pollingIntervalMs?: number;
   maxPollingAttempts?: number;
@@ -98,6 +100,7 @@ export const DEFAULTS = {
   upgradeTimelockHours: 72,
   multiSigThreshold: 2,
   multiSigSigners: 3,
+  transactionTimeoutSeconds: 30,
 } as const;
 
 /**

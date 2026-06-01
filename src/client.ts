@@ -238,6 +238,7 @@ export class CoralSwapClient {
         this.networkConfig.networkPassphrase,
         this.getRetryOptions(),
         this.logger,
+        this.config.transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds,
       );
     }
     return this._factory;
@@ -257,6 +258,7 @@ export class CoralSwapClient {
         this.networkConfig.networkPassphrase,
         this.getRetryOptions(),
         this.logger,
+        this.config.transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds,
       );
     }
     return this._router;
@@ -274,6 +276,7 @@ export class CoralSwapClient {
       this.getRetryOptions(),
       this.logger,
       sourceAccount,
+      this.config.transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds,
     );
   }
 

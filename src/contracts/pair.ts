@@ -7,6 +7,7 @@ import {
   nativeToScVal,
 } from "@stellar/stellar-sdk";
 import { FeeState, FlashLoanConfig } from "@/types/pool";
+import { DEFAULTS } from "@/config";
 import { withRetry, RetryOptions } from "@/utils/retry";
 import { Logger } from "@/types/common";
 
@@ -84,6 +85,7 @@ export class PairClient {
   private retryOptions: RetryOptions;
   private logger?: Logger;
   private sourceAccount?: string;
+  private transactionTimeoutSeconds: number;
   readonly address: string;
 
   /**
@@ -102,6 +104,7 @@ export class PairClient {
     retryOptions: RetryOptions,
     logger?: Logger,
     sourceAccount?: string,
+    transactionTimeoutSeconds?: number,
   ) {
     this.address = contractAddress;
     this.contract = new Contract(contractAddress);
@@ -110,6 +113,7 @@ export class PairClient {
     this.retryOptions = retryOptions;
     this.logger = logger;
     this.sourceAccount = sourceAccount;
+    this.transactionTimeoutSeconds = transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds;
   }
 
   /**
@@ -395,7 +399,7 @@ export class PairClient {
       networkPassphrase: this.networkPassphrase,
     })
       .addOperation(op)
-      .setTimeout(30)
+      .setTimeout(this.transactionTimeoutSeconds)
       .build();
 
     const sim = await withRetry(
