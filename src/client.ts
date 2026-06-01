@@ -338,6 +338,7 @@ export class CoralSwapClient {
       this.networkConfig.networkPassphrase,
       this.getRetryOptions(),
       this.logger,
+      this.config.transactionTimeoutSeconds ?? DEFAULTS.transactionTimeoutSeconds,
     );
   }
 
