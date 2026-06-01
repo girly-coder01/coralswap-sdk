@@ -77,6 +77,43 @@ export const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
 };
 
 /**
+ * Load a network configuration with optional environment variable overrides.
+ */
+export function getNetworkConfig(network: Network, logger?: Logger): NetworkConfig {
+  const baseConfig = NETWORK_CONFIGS[network];
+  const factoryEnv = process.env.CORALSWAP_FACTORY_ADDRESS?.trim();
+  const routerEnv = process.env.CORALSWAP_ROUTER_ADDRESS?.trim();
+
+  if (factoryEnv && baseConfig.factoryAddress) {
+    logger?.info(
+      `CORALSWAP_FACTORY_ADDRESS override detected for network ${network}`,
+      {
+        network,
+        configuredFactoryAddress: baseConfig.factoryAddress,
+        envFactoryAddress: factoryEnv,
+      },
+    );
+  }
+
+  if (routerEnv && baseConfig.routerAddress) {
+    logger?.info(
+      `CORALSWAP_ROUTER_ADDRESS override detected for network ${network}`,
+      {
+        network,
+        configuredRouterAddress: baseConfig.routerAddress,
+        envRouterAddress: routerEnv,
+      },
+    );
+  }
+
+  return {
+    ...baseConfig,
+    factoryAddress: factoryEnv || baseConfig.factoryAddress,
+    routerAddress: routerEnv || baseConfig.routerAddress,
+  };
+}
+
+/**
  * Default SDK configuration values.
  */
 export const DEFAULTS = {

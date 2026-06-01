@@ -4,7 +4,7 @@ import {
   Transaction,
   xdr,
 } from '@stellar/stellar-sdk';
-import { CoralSwapConfig, NetworkConfig, NETWORK_CONFIGS, DEFAULTS } from '@/config';
+import { CoralSwapConfig, NetworkConfig, NETWORK_CONFIGS, getNetworkConfig, DEFAULTS } from '@/config';
 import { Network, Result, Logger, Signer, SimulateTransactionOptions, SimulateTransactionResult } from '@/types/common';
 import { SignerError } from '@/errors';
 import { FactoryClient } from '@/contracts/factory';
@@ -150,9 +150,7 @@ export class CoralSwapClient {
     };
 
     this.network = config.network;
-    this.networkConfig = {
-      ...NETWORK_CONFIGS[config.network],
-    };
+    this.networkConfig = getNetworkConfig(config.network, config.logger);
 
     // Handle custom RPC URL(s)
     if (config.rpcUrl) {
@@ -286,9 +284,7 @@ export class CoralSwapClient {
    */
   setNetwork(network: Network, rpcUrl?: string): void {
     this.network = network;
-    this.networkConfig = {
-      ...NETWORK_CONFIGS[network],
-    };
+    this.networkConfig = getNetworkConfig(network, this.logger);
 
     if (rpcUrl) {
       this._rpcUrls = Array.isArray(rpcUrl) ? rpcUrl : [rpcUrl];
