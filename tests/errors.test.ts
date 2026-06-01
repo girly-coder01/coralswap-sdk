@@ -11,6 +11,7 @@ import {
   CircuitBreakerError,
   ValidationError,
   FlashLoanError,
+  CrossChainError,
   SignerError,
   mapError,
 } from "../src/errors";
@@ -45,6 +46,12 @@ describe("Error Hierarchy", () => {
     const err = new PairNotFoundError("TOKEN_A", "TOKEN_B");
     expect(err.code).toBe("PAIR_NOT_FOUND");
     expect(err.details?.tokenA).toBe("TOKEN_A");
+  });
+
+  it("CrossChainError carries code", () => {
+    const err = new CrossChainError("bridge failure");
+    expect(err.code).toBe("CROSS_CHAIN_ERROR");
+    expect(err.name).toBe("CrossChainError");
   });
 
   describe("mapError", () => {

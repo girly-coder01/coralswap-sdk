@@ -161,6 +161,16 @@ export class FlashLoanError extends CoralSwapSDKError {
 }
 
 /**
+ * Cross-chain routing or bridge execution errors.
+ */
+export class CrossChainError extends CoralSwapSDKError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super("CROSS_CHAIN_ERROR", message, details);
+    this.name = "CrossChainError";
+  }
+}
+
+/**
  * Circuit breaker triggered (pool is paused).
  */
 export class CircuitBreakerError extends CoralSwapSDKError {

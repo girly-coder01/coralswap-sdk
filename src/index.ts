@@ -65,6 +65,7 @@ export {
   OracleModule,
   TokenListModule,
   RouterModule,
+  SquidModule,
 } from "@/modules";
 export type { OptimalPath } from "@/modules/router";
 export type { TWAPObservation, TWAPResult } from "@/modules";
@@ -137,6 +138,7 @@ export {
   PairNotFoundError,
   ValidationError,
   FlashLoanError,
+  CrossChainError,
   CircuitBreakerError,
   SignerError,
   mapError,
