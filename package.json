@@ -23,6 +23,7 @@
     "examples:provide-liquidity": "ts-node examples/provide-liquidity.ts",
     "examples:read-reserves": "ts-node examples/read-reserves.ts",
     "examples:rwa-pool": "ts-node examples/rwa-pool.ts",
+    "examples:redstone-guarded-swap": "ts-node examples/redstone-guarded-swap.ts",
     "docs": "typedoc"
   },
   "keywords": [
