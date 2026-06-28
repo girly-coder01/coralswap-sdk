@@ -9,3 +9,4 @@ export { RouterModule } from './router';
 export { GovernanceModule } from './governance';
 export { TaxReportingModule } from './tax-reporting';
 export type { ExportOptions, TaxReportRow } from './tax-reporting';
+export { DCAModule } from './dca';
