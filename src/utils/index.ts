@@ -73,3 +73,10 @@ export {
   decodeEventsFromXdr,
 } from './events';
 export type { DecodeEventsOptions } from './events';
+
+export {
+  getVotingPower,
+  getVotingPowerAtLedger,
+  setVotingPowerQueryProvider,
+} from './voting-power';
+export type { VotingPower, VotingPowerQueryProvider, VotingPowerQueryResult } from './voting-power';
