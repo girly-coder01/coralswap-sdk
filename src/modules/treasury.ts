@@ -1,5 +1,5 @@
 import { CoralSwapClient } from "@/client";
-import { TreasuryBalance, TokenBalance, Allocation, TreasuryAllocation } from "@/types/treasury";
+import { TreasuryBalance, TokenBalance } from "@/types/treasury";
 
 const LEDGERS_PER_30_DAYS = 518_400; // 30 days × 86 400 s/day ÷ 5 s/ledger
 
@@ -72,60 +72,9 @@ export class TreasuryModule {
     return { totalUSD, tokens };
   }
 
-  /**
-   * Return the proportional allocation of each token in the treasury.
-   *
-   * Percentages are computed from USD values and sum to 100 (±0.01 for rounding).
-   * Results are sorted by percentage descending. Includes LP tokens held by the
-   * treasury. Returns empty allocations when the treasury has no holdings.
-   *
-   * @returns TreasuryAllocation with per-token breakdown and total USD.
-   * @example
-   * const alloc = await treasury.getTreasuryAllocation();
-   * alloc.allocations.forEach(a => {
-   *   console.log(`${a.token}: ${a.percentage.toFixed(2)}%`);
-   * });
-   */
-  async getTreasuryAllocation(): Promise<TreasuryAllocation> {
-    const { tokens, totalUSD } = await this.getTreasuryBalance();
-
-    if (tokens.length === 0) {
-      return { allocations: [], totalValueUSD: 0 };
-    }
-
-    const allocations: Allocation[] = tokens.map((t) => ({
-      token: t.address,
-      percentage: totalUSD > 0 ? (t.valueUSD / totalUSD) * 100 : 0,
-      valueUSD: t.valueUSD,
-      amount: t.amount,
-    }));
-
-    allocations.sort((a, b) => b.percentage - a.percentage);
-
-    if (totalUSD > 0) {
-      this.normalizePercentages(allocations);
-    }
-
-    return { allocations, totalValueUSD: totalUSD };
-  }
-
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
-
-  private normalizePercentages(allocations: Allocation[]): void {
-    if (allocations.length === 0) return;
-    const rawSum = allocations.reduce((s, a) => s + a.percentage, 0);
-    if (rawSum === 0) return;
-    const factor = 100 / rawSum;
-    let running = 0;
-    for (let i = 0; i < allocations.length - 1; i++) {
-      allocations[i].percentage = Math.round(allocations[i].percentage * factor * 100) / 100;
-      running += allocations[i].percentage;
-    }
-    allocations[allocations.length - 1].percentage =
-      Math.round((100 - running) * 100) / 100;
-  }
 
   private async collectLPHoldings(
     treasuryAddress: string,

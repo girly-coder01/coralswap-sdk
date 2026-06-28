@@ -21,27 +21,3 @@ export interface TreasuryBalance {
   /** Per-token breakdown of treasury holdings */
   tokens: TokenBalance[];
 }
-
-/**
- * A single token's proportional share of the treasury.
- */
-export interface Allocation {
-  /** Soroban contract address of the token */
-  token: string;
-  /** Percentage of total treasury value (0–100). Percentages sum to 100 ±0.01. */
-  percentage: number;
-  /** USD value of this allocation */
-  valueUSD: number;
-  /** Raw token amount in native precision */
-  amount: bigint;
-}
-
-/**
- * Treasury allocation breakdown across all held tokens.
- */
-export interface TreasuryAllocation {
-  /** Per-token percentage breakdown, sorted by percentage descending */
-  allocations: Allocation[];
-  /** Total treasury value in USD (sum of all allocation USD values) */
-  totalValueUSD: number;
-}
