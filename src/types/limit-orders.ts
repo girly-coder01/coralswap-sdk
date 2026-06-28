@@ -6,9 +6,3 @@ export interface OrderStatus {
   executionPrice?: number;
   filledAt?: number;
 }
-
-export interface CancelResult {
-  refundedAmount: bigint;
-  filledAmount: bigint;
-  refundTxHash: string;
-}

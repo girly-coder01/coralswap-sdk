@@ -6,9 +6,8 @@ import {
   nativeToScVal,
 } from '@stellar/stellar-sdk';
 import { CoralSwapClient } from '@/client';
-import { OrderStatus, LimitOrderState, CancelResult } from '@/types/limit-orders';
+import { OrderStatus, LimitOrderState } from '@/types/limit-orders';
 import { withRetry, RetryOptions } from '@/utils/retry';
-import { OrderNotFoundError, InvalidOperationError } from '@/errors';
 export function scValToString(val: xdr.ScVal | undefined): string {
   if (!val) throw new Error("Missing field");
   const tag = val.switch().name;
@@ -32,47 +31,6 @@ export function scValToOptionalNumber(val: xdr.ScVal | undefined): number | unde
   if (!val) return undefined;
   if (val.switch().name === 'scvVoid') return undefined;
   return scValToNumber(val);
-}
-
-export function scValToBigInt(val: xdr.ScVal | undefined): bigint {
-  if (!val) throw new Error("Missing field");
-  const tag = val.switch().name;
-  if (tag === 'scvI128') {
-    const parts = val.i128();
-    const lo = BigInt(parts.lo().toString());
-    const hi = BigInt(parts.hi().toString());
-    const loUnsigned = lo < 0n ? lo + (1n << 64n) : lo;
-    return (hi << 64n) + loUnsigned;
-  }
-  if (tag === 'scvU64') return val.u64().toBigInt();
-  if (tag === 'scvI64') return BigInt(val.i64().toBigInt());
-  if (tag === 'scvU32') return BigInt(val.u32());
-  if (tag === 'scvI32') return BigInt(val.i32());
-  throw new Error(`Expected bigint type, got ${tag}`);
-}
-
-export function parseCancelResult(result: xdr.ScVal): { refundedAmount: bigint; filledAmount: bigint } {
-  if (result.switch().name !== 'scvMap') {
-    throw new Error("Invalid cancel result: expected ScMap");
-  }
-  const map = result.map();
-  if (!map) throw new Error("Invalid cancel result: expected ScMap");
-
-  const fields: Record<string, xdr.ScVal> = {};
-  for (const entry of map) {
-    const k = entry.key();
-    const tag = k.switch().name;
-    let keyStr = '';
-    if (tag === 'scvString') keyStr = k.str().toString();
-    else if (tag === 'scvSymbol') keyStr = k.sym().toString();
-    else continue;
-    fields[keyStr] = entry.val();
-  }
-
-  const refundedAmount = scValToBigInt(fields['refunded_amount'] ?? fields['refundedAmount']);
-  const filledAmount = scValToBigInt(fields['filled_amount'] ?? fields['filledAmount']);
-
-  return { refundedAmount, filledAmount };
 }
 
 export function parseOrderStatus(result: xdr.ScVal): OrderStatus {
@@ -204,79 +162,6 @@ export class LimitOrderModule {
     return () => {
       active = false;
       clearInterval(timer);
-    };
-  }
-
-  async cancelLimitOrder(orderId: string, signer?: string): Promise<CancelResult> {
-    if (!orderId || typeof orderId !== 'string') {
-      throw new Error('orderId must be a non-empty string');
-    }
-
-    const status = await this.getLimitOrderStatus(orderId);
-
-    if (status.state === 'cancelled') {
-      throw new OrderNotFoundError(orderId);
-    }
-
-    if (status.state === 'filled') {
-      throw new InvalidOperationError(`Order ${orderId} is already filled`);
-    }
-
-    if (status.state === 'expired') {
-      throw new InvalidOperationError(`Order ${orderId} has expired`);
-    }
-
-    const cancelSigner = signer ?? this.client.publicKey;
-
-    const op = this.contract.call(
-      'cancel',
-      nativeToScVal(orderId, { type: 'string' }),
-      nativeToScVal(cancelSigner, { type: 'address' }),
-    );
-
-    const source = this.client.publicKey;
-    const account = await withRetry(
-      () => this.server.getAccount(source),
-      this.retryOptions,
-      undefined,
-      'LimitOrderModule_cancel_getAccount',
-    );
-
-    const tx = new TransactionBuilder(account, {
-      fee: '100',
-      networkPassphrase: this.networkPassphrase,
-    })
-      .addOperation(op)
-      .setTimeout(30)
-      .build();
-
-    const sim = await withRetry(
-      () => this.server.simulateTransaction(tx),
-      this.retryOptions,
-      undefined,
-      'LimitOrderModule_cancel_simulate',
-    );
-
-    if (!SorobanRpc.Api.isSimulationSuccess(sim) || !sim.result) {
-      throw new Error(
-        `Failed to cancel order ${orderId}: simulation did not succeed`,
-      );
-    }
-
-    const { refundedAmount, filledAmount } = parseCancelResult(sim.result.retval);
-
-    const submitResult = await this.client.submitTransaction([op]);
-
-    if (!submitResult.success || !submitResult.data) {
-      throw new Error(
-        `Failed to cancel order ${orderId}: ${submitResult.error?.message ?? 'Unknown error'}`,
-      );
-    }
-
-    return {
-      refundedAmount,
-      filledAmount,
-      refundTxHash: submitResult.data.txHash,
     };
   }
 }
