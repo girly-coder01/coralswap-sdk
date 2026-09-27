@@ -96,7 +96,7 @@ export {
 export type { BatchRequestOptions, BatchResult } from './batch-request';
 
 export { parseChangelog } from './changelog';
-export { RateLimiter } from './rate-limiter';
+export { RateLimiter, RateLimiterDestroyedError } from './rate-limiter';
 export type { RateLimiterOptions } from './rate-limiter';
 export { estimateGas } from './gas';
 export type { SimulateFn } from './gas';
@@ -126,6 +126,16 @@ export type { VotingPower, VotingPowerQueryProvider, VotingPowerQueryResult } fr
 export { checkCompatibility } from './migration';
 export type { BreakingChange, CompatibilityReport } from './migration';
 export { suppressDeprecationWarnings, deprecated } from './deprecation-warnings';
+
+export { decodeI128 as decodeI128Strict } from './numeric';
+
+export {
+  TOKEN_DECIMALS,
+  PRICE_SCALE,
+  BPS_DENOMINATOR,
+  CONVERSION_SCALE,
+  SCALE,
+} from './scale-constants';
 
 /**
  * Idempotent-resubmission helpers for state-changing on-chain calls.

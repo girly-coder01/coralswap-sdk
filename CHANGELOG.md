@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- `NotConfiguredError` (`NOT_CONFIGURED`, fail-fast) for a required network deployment or SDK provider that has not been configured (#638, #642)
+- `decodeI128Strict` (shared i128 ScVal decoder used by events, staking and limit orders), the `SCALE` constants bundle (`TOKEN_DECIMALS`, `PRICE_SCALE`, `BPS_DENOMINATOR`, `CONVERSION_SCALE`), and a `taskTimeoutMs` option on `batchRequest` that rejects tasks exceeding the per-task timeout
 - Webhook endpoint verification for the SDK webhook module:
   - `verifyWebhook(webhookId)` posts a signed challenge payload and records the result — a `2xx` marks the endpoint `verified: true`, a failed handshake (non-`2xx`, network error or timeout) marks it `verified: false`
   - `updateWebhook(webhookId, updates)` changes a registered webhook's `url`, `events` and/or `secret` with the same validation as `registerWebhook()`; changing the url resets `verified` and clears the failure counter, re-enabling a webhook that was auto-disabled
@@ -14,10 +16,18 @@
 - `MonitoringModule.getSystemMetrics(period)`: TVL, swap volume, fee revenue, and unique-user change vs. the previous equal-length window, plus top growing/declining pools. Historical figures are read through the shared `TypedEventCursor` (#478)
 
 ### Changed
+- `Network.STAGING` now targets Stellar Futurenet (`rpc-futurenet.stellar.org`, futurenet passphrase) with empty factory and router addresses instead of aliasing Testnet; `client.factory` / `client.router` throw `NotConfiguredError` on STAGING and MAINNET until deployment addresses are configured (#638)
+- `getVotingPower` / `getVotingPowerAtLedger` throw `NotConfiguredError` when no voting-power provider is set, instead of returning a silent zero-power account (#642)
+- `verifyRedStonePayload` fails closed: a missing or non-positive feed price throws `MissingPriceFeedError` and non-positive amounts throw `ValidationError`, where the guard used to be skipped (#656)
 - Bundle-size budget re-baselined from 200 KiB to 225 KiB: the original cap was measured before the check merged, and `main` was already 213.9 KiB when it landed, so the CI job failed on every commit. The current public surface measures 215.1 KiB (220,313 bytes) at `0d73bc2`; the cap keeps the intended ~4.5% headroom (#810)
 - Liquidity module validates add/remove-liquidity and add-liquidity-quote inputs with Zod schemas via `validateWithSchema`, replacing the hand-written guards while preserving every existing rule and error message
 
 ### Fixed
+- `fromSorobanAmount(amount, 0)` returned `"123."` for zero-decimal tokens, which `parseTokenAmount` rejects; it now returns `"123"`. Caught by the new amounts fuzz suite
+- `DecodeError` was exported but missing from `ERROR_TAXONOMY` and the error taxonomy docs; the new conformance suite caught it
+- Threshold price alerts using the pair spot-price fallback now quote the watched token in its paired token at the USD canonical scale (10^8), oriented by which side of the pair the token is on, instead of always returning `reserve1 / reserve0` at 10^18. Direction, boundary and orientation semantics are pinned by a fixture suite (#678)
+- `RateLimiter.destroy()` no longer "gifts" tokens to queued callers: destroying the limiter now rejects every queued `acquire()` with the new `RateLimiterDestroyedError` instead of resolving them, so a teardown path can no longer materialize an immediate unthrottled burst (#647). The error message is deliberately non-retryable-sounding so `isRetryable()` fails fast on a dead limiter
+- Added burst/token-accuracy tests for `RateLimiter` refill boundaries: sub-interval credit accrual, floor rounding at the refill boundary, and refill capping at `maxBurst` without distorting the refill clock (#647)
 - Restored source, config, and test files corrupted when #784, #785, #786, #789, #790, and #792 were merged (overwritten code, invalid `package.json` / `package-lock.json`), which left `main` unable to install, compile, or pass CI
 
 ## [1.1.0] - 2026-02-17
